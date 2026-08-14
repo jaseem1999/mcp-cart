@@ -1,76 +1,122 @@
-  package com.jk.mcp.service;
+package com.jk.mcp.service;
 
-  import org.springframework.ai.ollama.OllamaChatModel;
-  import org.springframework.ai.tool.annotation.Tool;
-  import org.springframework.beans.factory.annotation.Autowired;
-  import org.springframework.stereotype.Service;
-  import org.springframework.ai.chat.model.ChatResponse;
-  import org.springframework.ai.chat.prompt.Prompt;
+import com.jk.mcp.entity.Cart;
+import com.jk.mcp.repository.CartRepository;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.stereotype.Service;
 
-  import org.springframework.ai.ollama.api.OllamaChatOptions;
+import java.util.List;
 
-  import java.util.ArrayList;
-  import java.util.List;
-  import java.util.Map;
-  import java.util.concurrent.ConcurrentHashMap;
+@Service
+public class ShoppingCart implements McpService {
 
-  @Service
-  public class ShoppingCart implements McpService {
+  private final CartRepository cartRepository;
 
+  public ShoppingCart(CartRepository cartRepository) {
+    this.cartRepository = cartRepository;
+  }
 
+  @Override
+  public String generate(String prompt) {
+    return "Shopping cart service is ready.";
+  }
 
-    @Override
-    public String generate(String prompt) {
-      return null;
+  @Tool(
+          name = "addItem",
+          description = "Add an item to the shopping cart. If the item already exists, increase its quantity. Specify item name and quantity."
+  )
+  public String addItem(String name, int quantity) {
+
+    if (name == null || name.trim().isEmpty()) {
+      return "Error: Item name cannot be empty.";
     }
 
-    public record ShoppingItem(String name, int quantity) {
+    if (quantity <= 0) {
+      return "Error: Quantity must be greater than 0.";
     }
 
-    private final Map<String, ShoppingItem> shoppingList = new ConcurrentHashMap<>();
+    String productName = name.trim();
 
-    @Tool(name = "addItem",
-        description = "Add an item to the shopping list or update its quantity. Specify item name and quantity.")
-    public String addItem(String name, int quantity) {
-      if (name == null || name.trim().isEmpty() || quantity <= 0) {
-        return "Error: Invalid item name or quantity.";
-      }
-      shoppingList.compute(name.toLowerCase(), (key, existingItem) -> {
-        if (existingItem == null) {
-          return new ShoppingItem(name, quantity);
-        } else {
-          return new ShoppingItem(existingItem.name(), existingItem.quantity() + quantity);
-        }
-      });
-      return "Added " + quantity + " of " + name + " to the shopping list.";
-    }
+    Cart existingItem = cartRepository.findByProductIgnoreCase(productName);
 
-    @Tool(name = "getItems",
-        description = "Get all items currently in the shopping list. Returns a list of items with their names and quantities.")
-    public List<ShoppingItem> getItems() {
-      return new ArrayList<>(shoppingList.values());
-    }
+    if (existingItem == null) {
 
-    @Tool(name = "removeItem",
-        description = "Remove a specified quantity of an item from the shopping list. Specify item name and quantity to remove. If quantity is not specified or is greater than item quantity, the item is removed.")
-    public String removeItem(String name, int quantity) {
-      if (name == null || name.trim().isEmpty()) {
-        return "Error: Invalid item name.";
-      }
-      String lowerCaseName = name.toLowerCase();
-      ShoppingItem item = shoppingList.get(lowerCaseName);
+      Cart cart = new Cart();
+      cart.setProduct(productName);
+      cart.setQuantity(quantity);
 
-      if (item == null) {
-        return "Error: Item '" + name + "' not found in the shopping list.";
-      }
+      cartRepository.save(cart);
 
-      if (quantity <= 0 || quantity >= item.quantity()) {
-        shoppingList.remove(lowerCaseName);
-        return "Removed '" + name + "' from the shopping list.";
-      } else {
-        shoppingList.put(lowerCaseName, new ShoppingItem(item.name(), item.quantity() - quantity));
-        return "Removed " + quantity + " of '" + name + "'. Remaining quantity: "
-            + shoppingList.get(lowerCaseName).quantity() + ".";
-      }
+      return "Added " + quantity + " of '" + productName + "' to the shopping cart.";
+
+    } else {
+
+      int newQuantity = existingItem.getQuantity() + quantity;
+      existingItem.setQuantity(newQuantity);
+
+      cartRepository.save(existingItem);
+
+      return "Updated '" + productName + "' quantity to " + newQuantity + ".";
     }
   }
+
+  @Tool(
+          name = "getItems",
+          description = "Get all items currently in the shopping cart with their quantities."
+  )
+  public List<Cart> getItems() {
+
+    return cartRepository.findAll();
+  }
+
+  @Tool(
+          name = "removeItem",
+          description = "Remove a specified quantity of an item from the shopping cart. If the quantity equals the current quantity, the item is completely removed."
+  )
+  public String removeItem(String name, int quantity) {
+
+    if (name == null || name.trim().isEmpty()) {
+      return "Error: Item name cannot be empty.";
+    }
+
+    if (quantity <= 0) {
+      return "Error: Quantity must be greater than 0.";
+    }
+
+    String productName = name.trim();
+
+    Cart item = cartRepository.findByProductIgnoreCase(productName);
+
+    if (item == null) {
+      return "Error: Item '" + productName + "' not found in the shopping cart.";
+    }
+
+    int currentQuantity = item.getQuantity();
+
+    if (quantity > currentQuantity) {
+      return "Error: Cannot remove " + quantity
+              + " of '" + productName
+              + "'. Current quantity is " + currentQuantity + ".";
+    }
+
+    if (quantity == currentQuantity) {
+
+      cartRepository.delete(item);
+
+      return "Removed '" + productName + "' completely from the shopping cart.";
+
+    } else {
+
+      int remainingQuantity = currentQuantity - quantity;
+
+      item.setQuantity(remainingQuantity);
+
+      cartRepository.save(item);
+
+      return "Removed " + quantity
+              + " of '" + productName
+              + "'. Remaining quantity: "
+              + remainingQuantity + ".";
+    }
+  }
+}
