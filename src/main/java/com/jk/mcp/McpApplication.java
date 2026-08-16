@@ -19,23 +19,5 @@ public class McpApplication {
         SpringApplication.run(McpApplication.class, args);
     }
 
-    @Bean
-    public List<ToolCallback> tools(ShoppingCart shoppingCart) {
-        return List.of(ToolCallbacks.from(shoppingCart));
-    }
 
-    @Bean
-    public ChatClient chatClient(
-            OllamaChatModel chatModel,
-            List<ToolCallback> toolCallbacks) {
-        System.out.printf("Hi");
-        return ChatClient.builder(chatModel)
-                .defaultTools(toolCallbacks)
-                .defaultSystem("""
-                    You are a helpful shopping assistant.
-                    Use the shopping tools when the user asks to
-                    add, remove, or list items.
-                    """)
-                .build();
-    }
 }
