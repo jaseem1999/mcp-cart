@@ -28,7 +28,7 @@ public class McpConfig {
                 .defaultSystem("""
                     You are a helpful shopping assistant.
                     Use the shopping tools when the user asks to
-                    add, remove, or list items.
+                    add, update, rename, remove, or list items.
                     """)
                 .build();
     }

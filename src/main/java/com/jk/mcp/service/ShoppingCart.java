@@ -70,6 +70,66 @@ public class ShoppingCart implements McpService {
   }
 
   @Tool(
+          name = "updateItem",
+          description = "Set the quantity of an existing shopping cart item to the specified quantity. This replaces the current quantity; it does not add to it."
+  )
+  public String updateItem(String name, int quantity) {
+
+    if (name == null || name.trim().isEmpty()) {
+      return "Error: Item name cannot be empty.";
+    }
+
+    if (quantity <= 0) {
+      return "Error: Quantity must be greater than 0.";
+    }
+
+    String productName = name.trim();
+    Cart item = cartRepository.findByProductIgnoreCase(productName);
+
+    if (item == null) {
+      return "Error: Item '" + productName + "' not found in the shopping cart.";
+    }
+
+    item.setQuantity(quantity);
+    cartRepository.save(item);
+
+    return "Updated '" + productName + "' quantity to " + quantity + ".";
+  }
+
+  @Tool(
+          name = "renameItem",
+          description = "Rename an existing shopping cart item. Specify its current name and the new name."
+  )
+  public String renameItem(String name, String newName) {
+
+    if (name == null || name.trim().isEmpty()) {
+      return "Error: Item name cannot be empty.";
+    }
+
+    if (newName == null || newName.trim().isEmpty()) {
+      return "Error: New item name cannot be empty.";
+    }
+
+    String productName = name.trim();
+    String newProductName = newName.trim();
+    Cart item = cartRepository.findByProductIgnoreCase(productName);
+
+    if (item == null) {
+      return "Error: Item '" + productName + "' not found in the shopping cart.";
+    }
+
+    Cart existingItem = cartRepository.findByProductIgnoreCase(newProductName);
+    if (existingItem != null && !existingItem.getId().equals(item.getId())) {
+      return "Error: An item named '" + newProductName + "' already exists in the shopping cart.";
+    }
+
+    item.setProduct(newProductName);
+    cartRepository.save(item);
+
+    return "Renamed '" + productName + "' to '" + newProductName + "'.";
+  }
+
+  @Tool(
           name = "removeItem",
           description = "Remove a specified quantity of an item from the shopping cart. If the quantity equals the current quantity, the item is completely removed."
   )
